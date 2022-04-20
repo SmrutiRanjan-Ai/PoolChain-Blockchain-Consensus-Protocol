@@ -1,4 +1,3 @@
-import sys
 import des
 import global_function as g
 from blockchain import Blockchain
@@ -44,6 +43,9 @@ class Node:
             self.hash_mean = g.random.randint(400, 700)
         else:
             self.hash_mean = g.random.randint(700, 1000)
+        self.electric_rate = 1/self.hash_mean
+        self.electric_consumption=0
+        self.electric_timestamp=0
         self.pending_block = None
         self.mempool_limit = min(g.TXN_NUM / 10, 1000)
         print(self.id, " created at t=\t", self.creation_time)
@@ -59,8 +61,9 @@ class Node:
     def __str__(self):
         return str(self.id)
 
-    def addBalance(self, bid):
+    def addBalance(self,block_num, bid):
         self.balance += bid
+        self.payout[block_num]=0
 
     def debit(self, amount):
         if self.balance < amount:
@@ -77,14 +80,15 @@ class Node:
         5. Send the bidding transaction
         """
         min_bid = 1
+        n=g.N
+        init_n=0.9*n
         # Aggressive bidder.
         if self.balance < min_bid:
             return
         block_number = block_num
-        target_block_num = block_number + random.randint(901, 1000)
-        while target_block_num in self.bids.keys():
-            target_block_num = block_number + random.randint(901, 1000)
+        target_block_num = block_number + random.randint(init_n+1, n)
         bid = random.uniform(min_bid, self.balance)
+        bid=bid/50
         self.debit(bid)
         self.bids[target_block_num] = bid
 
@@ -92,10 +96,16 @@ class Node:
         payout_delay = int(self.payout_delay / 2)
         self.payout[payout_delay] = bid
 
+    def bid_cancel(self, block_num):
+        if block_num in self.bids.keys():
+            bid=self.bids[block_num]
+            self.payout[block_num+(g.N//10)]=bid
+
+
+
     def create_blockchain(self, genesis):
         '''Initialize Blockchain'''
         self.blockchain = Blockchain(genesis)
-        self.chain = self.blockchain.tree.longest_chain()
 
     def create_trans(self, timestamp, sender, receiver, amount, commission=0):
         '''Create Transaction and add to mempool and BroadCast Them'''
@@ -198,7 +208,7 @@ class Node:
 
         block_num = block.header['block_num']
         if block_num in self.payout.keys():
-            self.addBalance(self.payout[block_num])
+            self.addBalance(block_num, self.payout[block_num])
         if sender.type == 'selfish':
             print(timestamp, self, "honest recieved selifsh block", block)
         status, code = self.blockchain.add_block_to_chain(block, timestamp)
@@ -220,7 +230,7 @@ class Node:
 
     def stop_mining(self, timestamp, block):
         '''Stop Mining If a corresponding valid block is received'''
-
+        self.electric_calculator(timestamp)
         if self.pending_block is not None:
             prev_hash = self.pending_block.header['prev_hash']
             if block.header['prev_hash'] == prev_hash:
@@ -228,7 +238,7 @@ class Node:
                     self.pending_block = None
                     self.busy = False
                     if g.POB:
-                        self.bid_return(block.header['block_num'])
+                        self.bid_cancel(block.header['block_num'])
         event = Event(timestamp + lag, [self.check_mempool, timestamp + lag])
         des.heapq.heappush(des.q, event)
 
@@ -252,19 +262,30 @@ class Node:
 
     def create_block(self, timestamp):
         """Selection of transaction and Mining of block happens here"""
+        self.electric_timestamp=timestamp
         chain = self.blockchain.get_chain()
         current_block_num = chain[-1].header['block_num']
-        self.bid(current_block_num)
+        if current_block_num>=g.N-1 and g.POB:
+            g.pob_init=True
+        if g.POB:
+            self.bid(current_block_num)
         next_block_num = current_block_num + 1
         new_blkid = g.blkid_gen()
+        self.busy = True
+        if next_block_num in self.payout.keys():
+            self.addBalance(next_block_num, self.payout[next_block_num])
         if g.POB and next_block_num in self.bids.keys():
             total_bid = g.total_bids(next_block_num)
             drr = self.bids[next_block_num] / total_bid
             self.inter_arrival_time=pob.proof_of_bet(drr, self.hash_mean)
             new_timestamp = self.inter_arrival_time + timestamp
         else:
-            self.inter_arrival_time= random.exponential(scale=self.hash_mean, size=1)[0]
-            new_timestamp = self.inter_arrival_time + timestamp
+            if g.pob_init:
+                self.busy = False
+                return
+            else:
+                self.inter_arrival_time= random.exponential(scale=self.hash_mean, size=1)[0]
+                new_timestamp = self.inter_arrival_time + timestamp
         last_block = chain[-1]
         if self.mempool:
             txn=self.mempool.pop()
@@ -272,8 +293,6 @@ class Node:
             txn_list.append(txn)
         else:
             return
-        #txn_list = [i for i in mem_pool_list if i not in conf_trans_list]
-        #txn_list = [i for i in txn_list if self.verify_txn(conf_trans_list, i)]
         prev_hash = last_block.header['block_hash']
         if txn_list:
             if g.mining_log_detail:
@@ -304,18 +323,26 @@ class Node:
                 self.current_block_num = len(chain)
                 self.check_completed_trans(chain)
                 timestamp += lag
+                self.electric_calculator(timestamp)
                 message = Message('blk', block)
                 self.broadcast_message(timestamp, message, self)
                 if g.POB and block_num in self.bids.keys():
                     bid_amount = self.bids[block_num]
-                    mining_fee = 0
-                    if block_num in self.payout.keys():
-                        self.addBalance(self.payout[block_num])
+                    mining_fee = g.MINING_FEE
                     self.payout[block_num + self.payout_delay] = bid_amount + mining_fee
         self.pending_block = None
         self.busy = False
         event = Event(timestamp + lag, [self.check_mempool, timestamp + lag])
         des.heapq.heappush(des.q, event)
+
+    def electric_calculator(self,timestamp):
+        if timestamp>self.electric_timestamp:
+            diff=timestamp - self.electric_timestamp
+            if self.busy:
+                self.electric_consumption+=diff*self.electric_rate
+            self.electric_timestamp=timestamp
+        else:
+            pass
 
 
 class Event:

@@ -1,5 +1,6 @@
+import random
+
 import mkltree as mk
-import sys
 
 
 class Block:
@@ -12,6 +13,10 @@ class Block:
                        'blkid': blkid, 'creator': creator,'block_num':block_num}
         self.VERSION = version
         self.adj_matrix = None
+
+        self.anchor_weight=random.randint(0,10)
+        self.weight = self.anchor_weight + 10
+
 
     def __str__(self):
         return "(" + str(self.header['creator']) + ' Blkid- ' + str(self.header['blkid']) + " prev "+ \

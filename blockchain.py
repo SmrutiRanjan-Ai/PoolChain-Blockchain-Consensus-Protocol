@@ -12,16 +12,19 @@ class Blockchain:
         self.tree = tree.Tree(genesis)
         self.pending_tree_blocks = []
         self.blkid_list = []
-        self.blockchain = {0:[{'block':genesis,'weight':0}]}
+        self.blockchain = {0:[genesis]}
         self.highest_block_num = 0
 
 
     def create_block(self, list_trans, blkid, timestamp, version, creator, block_num, prev_hash=None):
         '''Create temp block with proof of work but not added to chain'''
         if prev_hash is None:
-            chain=self.get_chain()
-            last_block=chain[-1]
-            prev_hash = last_block.header['block_hash']
+            if self.blockchain[0]==[]:
+                prev_hash=0
+            else:
+                chain=self.get_chain()
+                last_block=chain[-1]
+                prev_hash = last_block.header['block_hash']
         new_block = block.Block(prev_hash, list_trans, blkid, timestamp, version, creator, block_num)
         p.proof_of_work(new_block)
         return True, new_block
@@ -38,17 +41,16 @@ class Blockchain:
                 if prev_block_num in self.blockchain.keys():
                     prev_blocks = self.blockchain[prev_block_num]
                     for prev_block in prev_blocks:
-                        if prev_block['block'].header['block_hash'] == prev_hash:
-                            node = {'block': block, 'weight': 0}
+                        if prev_block.header['block_hash'] == prev_hash:
                             if block_num in self.blockchain.keys():
-                                self.blockchain[block_num].append(node)
+                                self.blockchain[block_num].append(block)
                             else:
                                 self.blockchain[block_num] = []
-                                self.blockchain[block_num].append(node)
+                                self.blockchain[block_num].append(block)
                             self.blkid_list.append(blkid)
                             if block_num > self.highest_block_num:
                                 self.highest_block_num = block_num
-                            self.update_chain_weight()
+
                             return True,"Block Added"
                     return False, "Block couldnt be Added"
             return False, "Block couldnt be Added because check block failed"
@@ -56,21 +58,20 @@ class Blockchain:
 
     def get_chain(self):
         chain = []
-        li=[]
         next_block = None
         for i in range(0, self.highest_block_num + 1):
             if i in self.blockchain.keys():
                 li = self.blockchain[i]
-                weight = -1
                 if chain:
                     last_block = chain[-1]
-                    for node in li:
-                        if last_block.header['block_hash'] == node['block'].header['prev_hash'] and node['weight'] > weight:
-                            next_block = node['block']
-                            weight = node['weight']
+                    weight=0
+                    for block in li:
+                        if last_block.header['block_hash'] == block.header['prev_hash'] and block.weight > weight:
+                            next_block = block
+                            weight = block.weight
                     chain.append(next_block)
                 else:
-                    chain.append(li[0]['block'])
+                    chain.append(li[0])
         return chain
 
     def visualize_chain(self):
@@ -79,9 +80,8 @@ class Blockchain:
             if i in self.blockchain.keys():
                 li = self.blockchain[i]
                 print("Height = ",i,end=" - ")
-                for node in li:
-                    blk=node['block']
-                    print(blk.header['blkid'], blk.header['block_num'], "weight", node['weight'], end=" ---")
+                for blk in li:
+                    print(blk.header['blkid'], blk.header['block_num'], "weight", blk.weight, end=" ---")
                 print("")
 
 

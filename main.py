@@ -6,8 +6,6 @@ import block
 import transaction
 import proof
 from numpy import random, round_
-import selfishnode
-import stubbornnode
 t = g.INITIAL_TIMESTAMP
 
 
@@ -19,17 +17,17 @@ def node_constructor(n, z):
             bandwidth = 'SLOW'
         else:
             bandwidth = 'FAST'
-        n = node.Node(g.INITIAL_TIMESTAMP, g.NODE_START_ID + i + 1, bandwidth, 100)
+        n = node.Node(g.INITIAL_TIMESTAMP, g.NODE_START_ID + i + 1, bandwidth, random.randint(100,1000))
         g.node_list.append(n)
     g.create_peers()
-    if g.selfish and not g.stubborn:
+    '''    if g.selfish and not g.stubborn:
         attacker=selfishnode.SelfishNode(g.INITIAL_TIMESTAMP, 99 , 'FAST')
         g.create_attacker_peers(attacker)
         g.node_list.append(attacker)
     elif not g.selfish and g.stubborn:
         attacker=stubbornnode.StubbornNode(g.INITIAL_TIMESTAMP, 99 , 'FAST')
         g.create_attacker_peers(attacker)
-        g.node_list.append(attacker)
+        g.node_list.append(attacker)'''
     for n in g.node_list:
         li = list(n.peers)
         for p in li:
@@ -77,15 +75,17 @@ while des.q:
     args = obj[1:]
     obj[0](*args)
 
-if g.selfish and g.attackers_add_end_blocks:
+'''if g.selfish and g.attackers_add_end_blocks:
     selfish_node=g.node_list[-1]
-    selfish_node.end_broadcast(t)
+    selfish_node.end_broadcast(t)'''
 
 # visualization
 for i in g.node_list:
     print(i)
     i.blockchain.visualize_chain()
-print("Avg InterArrival Time = ", sum(g.txn_interarrival_list)/len(g.txn_interarrival_list))
+total_blocks=len(g.txn_interarrival_list)
+iat=sum(g.txn_interarrival_list)/total_blocks
+
 
 
 
@@ -104,8 +104,16 @@ for i in g.node_list:
     print("Pecrentage of Node ",i,"=",num/len_chain,"Hash Power is ",i.hash_power,i.bandwidth)
 
 
+total_consumption=0
+for i in g.node_list:
+    print("Electric Consumption of ",i,"=",i.electric_consumption)
+    total_consumption+=i.electric_consumption
+print("Avg InterArrival Time = ",iat )
+print("Total Energy consumption is ",total_consumption)
+print("Total number of Blocks Created",total_blocks)
+print("Energy Consumed per block created", total_consumption/total_blocks)
 
-if g.selfish or g.stubborn:
+'''if g.selfish or g.stubborn:
     attacker=g.node_list[-1]
     main_chain=g.node_list[0].blockchain.tree.longest_chain()
     #print MPU_node_adversary
@@ -122,4 +130,6 @@ if g.selfish or g.stubborn:
     total_blocks=len(set(g.node_list[0].blockchain.tree_traverse_blkid()))
     print("Total number of blocks in main chain", num_main_chain)
     print("Total number of blocks generated across all the nodes", total_blocks)
-    print("MPU_node_overall=",num_main_chain/total_blocks)
+    print("MPU_node_overall=",num_main_chain/total_blocks)'''
+
+

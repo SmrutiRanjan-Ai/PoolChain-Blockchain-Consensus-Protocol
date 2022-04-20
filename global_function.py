@@ -6,7 +6,8 @@ blk_list = set()  # set of all blkids
 id_list = []
 COMMISSION_LIMIT = 0
 NODE_START_ID = 100
-POB = True
+POB = False # Make it False for Pure POW , True for PoolChain
+MINING_FEE=0
 # Number of Nodes
 NODES = 50
 NODES_MINING_TIME_DIFF = 0
@@ -14,8 +15,9 @@ INITIAL_TIMESTAMP = 0
 VERSION = '1.0'
 GENESIS = 0
 START_AMOUNT = 50
-TXN_NUM = 4000
-
+TXN_NUM = 3000
+N=100
+pob_init=False
 # Network Parameters
 C_FAST = 100000000  # 100mbps = 100 * 10^6 bits
 C_SLOW = 5000000  # 5mbps = 5 * 10^6 bits
@@ -28,11 +30,11 @@ hashing_power_high_mean = 400  # Tk - lower is faster/better
 hashing_power_low_mean = 800  # Tk - higher is slower/better
 
 # Attacker Mining Parameters
-selfish = False  # True if want to do only Selfish Mining
+'''selfish = False  # True if want to do only Selfish Mining
 stubborn = False  # True if want to do only Stubborn Mining
 attackers_add_end_blocks = False  # Add private blocks to blockchain at the end of simulation
 adversary_mining_power = 50  # lower is higher
-zeta = 0.5  # ζ = 25%, 50%, 75%
+zeta = 0.5  # ζ = 25%, 50%, 75%'''
 
 '''Terminal Customization'''
 message_log = False
